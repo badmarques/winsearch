@@ -143,6 +143,9 @@ class Query():
         # mapping cmd line style wildcards to SQL style wildcards
         for a, b in [("*", "%"), ("?", "_")]:
             fpattern = fpattern.replace(a, b)
+        
+        if " " in fpattern:
+            fpattern = '"' + fpattern + '"'
         self._fpattern = fpattern
         return self
 
