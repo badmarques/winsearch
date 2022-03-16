@@ -3,14 +3,11 @@
 
 from setuptools import setup, find_packages
 from winsearch import __version__, __author__
-
-
 setup(
 	name = "winsearch",
 	version = __version__,
-	packages = ["adodbapi"],
+	packages = [],
 	scripts = ["winsearch.py"],
-
 	author = __author__,
 	author_email = "jan-magel@web.de",
 	description = "",

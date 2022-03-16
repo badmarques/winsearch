@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import adodbapi as OleDb
-import urllib2
-
+from urllib.request import url2pathname
+from urllib.parse import urlparse
 
 __author__ = "microkernel"
 __version__ = "0.0.1dev"
@@ -40,12 +40,13 @@ class Query():
         self.extensions(*kwargs.get("extensions", []))
         self.fpattern(kwargs.get("filepattern", ""))
         self.sortby(kwargs.get("sort", None))
+        self.ignore(kwargs.get("ignore", None))
 
         sort_order = kwargs.get("order", "asc").lower()
         if sort_order in ["asc", "desc"]:
             getattr(self, sort_order)()
         else:
-            raise ValueError, "Unknowen sort order. Please use desc or asc."
+            raise ValueError("Unknown sort order. Please use desc or asc.")
 
     def __str__(self):
         return self.query
@@ -59,15 +60,15 @@ class Query():
 
     def __build_query(self):
         query_temp = ('SELECT %s %s FROM "SystemIndex" '
-                      'WHERE WorkId IS NOT NULL %s %s %s %s')
+                      'WHERE WorkId IS NOT NULL %s %s %s %s %s')
 
-        frags = ["", "", "", "", "", ""]
+        frags = ["", "", "", "", "", "", ""]
         frags[1] = '"{0}"'.format('", "'.join(self._select))
         frags[2] = "AND scope='file:%s'" % self._scope
         if self._limit:
             frags[0] = "TOP %d" % self._limit
         if self._sort_col:
-            frags[5] = 'ORDER BY {0} {1}'.format(self._sort_col,
+            frags[6] = 'ORDER BY {0} {1}'.format(self._sort_col,
                                                  self._sort_order)
         if self._fpattern:
             if "%" in self._fpattern or "_" in self._fpattern:
@@ -82,8 +83,11 @@ class Query():
             # in the form of Contains(System.ItemType, '.txt OR .doc OR .ppt')
             frags[4] = ("AND Contains(System.ItemType, "
                         ''''"{}"')''').format('" OR "'.join(self._exts))
+        if self._ignore: # if we have file pattern to ignore
+            #print(self._ignore)
+            frags[5] = ("AND NOT Contains(System.FileName, "
+                            "'{}')").format(self._ignore)
 
-        # print query_temp % tuple(frags)
         return query_temp % tuple(frags)
 
     def execute(self, connection=None):
@@ -142,6 +146,9 @@ class Query():
         self._fpattern = fpattern
         return self
 
+    def ignore(self, ignore):
+        self._ignore = ignore
+        return self
 
 def execute(query, connection):
     cursor = connection.cursor()
@@ -150,8 +157,8 @@ def execute(query, connection):
 
 
 def itemurl2pathname(url):
-    url = urllib2.splittype(url)[1]
-    return urllib2.url2pathname(url)
+    url = urlparse(url)["path"]
+    return url2pathname(url)
 
 
 def is_windows_search_avaible(scope):
@@ -174,9 +181,9 @@ def test():
     query.extensions("pdf", "doc", "docx", "odt")
 
     cursor = query.execute()
-    print "[*] Last five docs:"
+    print("[*] Last five docs:")
     for row in cursor:
-        print "\t", row[0]
+        print("\t", row[0])
 
     # memory usage of all indexed jpegs
     query = Query(select=["size"])
@@ -186,8 +193,8 @@ def test():
     results = cursor.fetchall()
 
     total_size = sum(map(lambda r: r[0], results))
-    print "[*] Total memory usage of all indexed jpegs: %d MBytes" % (
-        total_size // 0x100000)
+    print("[*] Total memory usage of all indexed jpegs: %d MBytes" % (
+        total_size // 0x100000))
 
     # five most recently edited .py's
     query = Query(select=["url"])
@@ -195,12 +202,12 @@ def test():
     query.extensions("py")
 
     cursor = query.execute()
-    print "[*] Last five pys:"
+    print("[*] Last five pys:")
     for row in cursor:
-        print "\t", itemurl2pathname(row[0])
+        print("\t", itemurl2pathname(row[0]))
 
     delta = time.time() - start
-    print "[Finished in %.1fs]" % delta
+    print("[Finished in %.1fs]" % delta)
 
 
 if __name__ == "__main__":
